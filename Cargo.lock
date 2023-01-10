@@ -3441,7 +3441,7 @@ dependencies = [
  "env_logger 0.10.0",
  "erased-serde",
  "eth2_ssz_types",
- "ethereum-types 0.12.1",
+ "ethereum-types 0.14.1",
  "flex-error",
  "hex",
  "ibc-proto",

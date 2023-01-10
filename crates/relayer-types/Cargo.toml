@@ -50,7 +50,7 @@ bls              = { git = "https://github.com/yangby-cryptape/lighthouse", rev 
 tree_hash        = { git = "https://github.com/yangby-cryptape/lighthouse", rev = "62dc610" }
 tree_hash_derive = { git = "https://github.com/yangby-cryptape/lighthouse", rev = "62dc610" }
 thiserror = "1.0"
-ethereum-types = "0.12.1"
+ethereum-types = "0.14.1"
 hex = "0.4"
 
 [dependencies.tendermint]
