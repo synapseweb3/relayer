@@ -87,3 +87,15 @@ impl EthChainConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn deserialize_config() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/config/fixtures/relayer_conf_example_eth.toml"
+        );
+        let _ = crate::config::load(path).expect("could not parse config");
+    }
+}

@@ -75,3 +75,40 @@ impl Runnable for ForcerelayCmd {
         .join();
     }
 }
+
+// Step test header sent from eth to ckb.
+// Run: RUST_BACKTRACE=1 cargo test send_eth_header -- --ignored
+#[test]
+#[ignore]
+fn send_eth_header() {
+    // parameters
+    let height = 100;
+    let eth_chain: ChainId = "ibc-eth-0".parse().unwrap();
+    let ckb_chain: ChainId = "ibc-ckb-0".parse().unwrap();
+
+    let config_path = super::default_config_file().unwrap();
+    let config = ibc_relayer::config::load(config_path).unwrap();
+    // let config = (*app_config()).clone();
+
+    let registry = SharedRegistry::<CachingChainHandle>::new(config.clone());
+    let src_chain = registry.get_or_spawn(&eth_chain).unwrap_or_else(|e| {
+        Output::error(format!("Forcerelay failed to start ethereum: {}", e)).exit()
+    });
+    let dst_chain = registry
+        .get_or_spawn(&ckb_chain)
+        .unwrap_or_else(|e| Output::error(format!("Forcerelay failed to start ckb: {}", e)).exit());
+
+    let height = ibc_relayer_types::core::ics02_client::height::Height::new(0, height).unwrap();
+    let client_state = src_chain
+        .build_client_state(height, ibc_relayer::chain::client::ClientSettings::Other)
+        .unwrap();
+    let tracked_msgs = ibc_relayer::chain::tracking::TrackedMsgs {
+        msgs: vec![client_state.into()],
+        tracking_id: ibc_relayer::chain::tracking::TrackingId::Static(
+            ibc_relayer::chain::tracking::NonCosmosTrackingId::ETH_UPDATE_CLIENT,
+        ),
+    };
+
+    let ret = dst_chain.send_messages_and_wait_commit(tracked_msgs);
+    info!("{:?}", ret);
+}
