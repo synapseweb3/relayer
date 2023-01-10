@@ -7,7 +7,7 @@ edition = "2021"
 tendermint     = { version  = "0.28.0" }
 tendermint-rpc = { version  = "0.28.0", features = ["http-client"] }
 
-clap               = { version = "3.2", features = ["derive"] }
+clap               = { version = "4.0", features = ["derive"] }
 futures            = "0.3.25"
 itertools          = "0.10.5"
 tokio              = { version = "1.21.2", features = ["full"] }
