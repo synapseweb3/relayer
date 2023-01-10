@@ -1,5 +1,5 @@
 DESCRIPTION:
-Relay ETH headers to CKB and maintain the the ETH light client in CKB contract.
+todo
 
 USAGE:
     hermes forcerelay --ethereum-chain-id <ETH_CHAIN> --ckb-chain-id <CKB_CHAIN>
