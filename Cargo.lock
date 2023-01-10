@@ -3331,7 +3331,7 @@ dependencies = [
  "prost",
  "regex",
  "reqwest",
- "reqwest-middleware",
+ "reqwest-middleware 0.2.0",
  "reqwest-retry",
  "retry",
  "ripemd",
@@ -5503,6 +5503,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest-middleware"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a1c03e9011a8c59716ad13115550469e081e2e9892656b0ba6a47c907921894"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "http",
+ "reqwest",
+ "serde",
+ "task-local-extensions",
+ "thiserror",
+]
+
+[[package]]
 name = "reqwest-retry"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5515,7 +5530,7 @@ dependencies = [
  "http",
  "hyper",
  "reqwest",
- "reqwest-middleware",
+ "reqwest-middleware 0.1.6",
  "retry-policies",
  "task-local-extensions",
  "tokio",
