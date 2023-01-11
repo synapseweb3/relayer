@@ -12,16 +12,16 @@ use secp256k1::PublicKey;
 use std::sync::Arc;
 
 use super::helper::{CellSearcher, TxCompleter};
-use super::rpc_client::RpcClient;
+use super::rpc_client::CkbRpcClient;
 use crate::error::Error;
 
-pub struct TxAssembler {
-    ckb_rpc: Arc<RpcClient>,
+pub struct TxAssembler<C: CkbRpcClient> {
+    ckb_rpc: Arc<C>,
     address: Address,
 }
 
-impl TxAssembler {
-    pub fn new(ckb_rpc: Arc<RpcClient>, pubkey: &PublicKey, network: NetworkType) -> Self {
+impl<C: CkbRpcClient> TxAssembler<C> {
+    pub fn new(ckb_rpc: Arc<C>, pubkey: &PublicKey, network: NetworkType) -> Self {
         let address_payload = AddressPayload::from_pubkey(pubkey);
         let address = Address::new(network, address_payload, true);
         Self { ckb_rpc, address }
@@ -38,7 +38,7 @@ impl TxAssembler {
             .args(contract_typeid_args.as_bytes().to_vec().pack())
             .build();
         let type_hash = contract_typescript.calc_script_hash();
-        let lightclient_cell_opt = CellSearcher::new(&self.ckb_rpc)
+        let lightclient_cell_opt = CellSearcher::new(self.ckb_rpc.as_ref())
             .search_cell_by_typescript(&type_hash, &client_id.as_bytes().to_vec())
             .await?;
         match lightclient_cell_opt {
@@ -65,7 +65,7 @@ impl TxAssembler {
             .hash_type(ScriptHashType::Type.into())
             .args(contract_typeid_args.as_bytes().to_vec().pack())
             .build();
-        let searcher = CellSearcher::new(&self.ckb_rpc);
+        let searcher = CellSearcher::new(self.ckb_rpc.as_ref());
         let contract_cell = {
             let contract = searcher
                 .search_cell(&contract_typescript, PrimaryScriptType::Type)

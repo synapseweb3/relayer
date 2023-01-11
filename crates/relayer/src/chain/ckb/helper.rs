@@ -4,15 +4,15 @@ use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{Capacity, DepType, ScriptHashType, TransactionView};
 use ckb_types::{bytes::Bytes, h256, packed, prelude::*};
 
-use super::rpc_client::RpcClient;
+use super::rpc_client::CkbRpcClient;
 use crate::error::Error;
 
-pub struct CellSearcher<'r> {
-    rpc: &'r RpcClient,
+pub struct CellSearcher<'r, C: CkbRpcClient> {
+    rpc: &'r C,
 }
 
-impl<'r> CellSearcher<'r> {
-    pub fn new(rpc: &'r RpcClient) -> Self {
+impl<'r, C: CkbRpcClient> CellSearcher<'r, C> {
+    pub fn new(rpc: &'r C) -> Self {
         Self { rpc }
     }
 
@@ -82,12 +82,12 @@ impl<'r> CellSearcher<'r> {
     }
 }
 
-pub struct TxCompleter<'t> {
-    cell_searcher: &'t CellSearcher<'t>,
+pub struct TxCompleter<'t, C: CkbRpcClient> {
+    cell_searcher: &'t CellSearcher<'t, C>,
 }
 
-impl<'t> TxCompleter<'t> {
-    pub fn new(cell_searcher: &'t CellSearcher) -> Self {
+impl<'t, C: CkbRpcClient> TxCompleter<'t, C> {
+    pub fn new(cell_searcher: &'t CellSearcher<C>) -> Self {
         Self { cell_searcher }
     }
 

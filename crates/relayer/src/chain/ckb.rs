@@ -51,6 +51,8 @@ use crate::{
     misbehaviour::MisbehaviourEvidence,
 };
 
+pub use self::rpc_client::{CkbRpcClient, RpcClient};
+
 use super::tracking::{NonCosmosTrackingId as NonCosmos, TrackedMsgs, TrackingId};
 use super::{
     client::ClientSettings,
@@ -71,19 +73,18 @@ mod helper;
 mod rpc_client;
 mod signer;
 use assembler::TxAssembler;
-use rpc_client::RpcClient;
 
-pub struct CkbChain {
+pub struct CkbChain<C: CkbRpcClient> {
     pub rt: Arc<TokioRuntime>,
-    pub rpc_client: Arc<RpcClient>,
+    pub rpc_client: Arc<C>,
     pub config: CkbChainConfig,
     pub keybase: KeyRing<Secp256k1KeyPair>,
-    pub tx_assembler: TxAssembler,
+    pub tx_assembler: TxAssembler<C>,
     // TODO the spec of Ethereum should be selectable.
     pub storage: Storage<MainnetEthSpec>,
 }
 
-impl CkbChain {
+impl<C: CkbRpcClient> CkbChain<C> {
     fn create_eth_client(&mut self) -> Result<Vec<IbcEventWithHeight>, Error> {
         Ok(vec![])
     }
@@ -279,7 +280,7 @@ impl CkbChain {
     }
 }
 
-impl ChainEndpoint for CkbChain {
+impl<C: CkbRpcClient> ChainEndpoint for CkbChain<C> {
     type LightBlock = CkbLightBlock;
     type Header = CkbHeader;
     type ConsensusState = CkbConsensusState;
@@ -292,9 +293,9 @@ impl ChainEndpoint for CkbChain {
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         let config: CkbChainConfig = config.try_into()?;
-        let rpc_client = Arc::new(RpcClient::new(&config.ckb_rpc, &config.ckb_indexer_rpc));
-        let keybase =
-            KeyRing::new(Default::default(), "ckb", &config.id).map_err(Error::key_base)?;
+        let rpc_client = Arc::new(C::new(&config.ckb_rpc, &config.ckb_indexer_rpc));
+        let keybase = KeyRing::new(crate::keyring::Store::Memory, "ckb", &config.id)
+            .map_err(Error::key_base)?;
         let storage = Storage::new(&config.data_dir)?;
 
         let chain_info = rt
@@ -628,5 +629,120 @@ impl ChainEndpoint for CkbChain {
 
     fn subscribe(&mut self) -> Result<super::handle::Subscription, Error> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ckb_jsonrpc_types::{
+        BlockNumber, BlockView, ChainInfo, HeaderView, JsonBytes, OutPoint, Transaction,
+        TransactionWithStatusResponse,
+    };
+    use ckb_sdk::rpc::ckb_light_client::{Cell, Pagination, SearchKey};
+    use futures::FutureExt;
+    use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+    use tendermint_rpc::Url;
+    use tokio::runtime::Runtime;
+
+    use super::rpc_client::Rpc;
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+    use std::str::FromStr;
+
+    struct MockRpcClient {}
+
+    impl CkbRpcClient for MockRpcClient {
+        fn new(_ckb_uri: &Url, _indexer_uri: &Url) -> Self {
+            MockRpcClient {}
+        }
+
+        fn get_blockchain_info(&self) -> Rpc<ChainInfo> {
+            let chain_info = ChainInfo {
+                chain: String::from("test"),
+                median_time: 0x0.into(),
+                epoch: 0x11555.into(),
+                difficulty: Default::default(),
+                is_initial_block_download: true,
+                alerts: vec![],
+            };
+            async { Ok(chain_info) }.boxed()
+        }
+
+        fn get_block_by_number(&self, _number: BlockNumber) -> Rpc<BlockView> {
+            todo!()
+        }
+
+        fn get_block(&self, _hash: &ckb_types::H256) -> Rpc<BlockView> {
+            todo!()
+        }
+
+        fn get_tip_header(&self) -> Rpc<HeaderView> {
+            todo!()
+        }
+
+        fn get_transaction(
+            &self,
+            _hash: &ckb_types::H256,
+        ) -> Rpc<Option<TransactionWithStatusResponse>> {
+            todo!()
+        }
+
+        fn get_live_cell(
+            &self,
+            _out_point: &OutPoint,
+            _with_data: bool,
+        ) -> Rpc<ckb_jsonrpc_types::CellWithStatus> {
+            todo!()
+        }
+
+        fn send_transaction(
+            &self,
+            _tx: &Transaction,
+            _outputs_validator: Option<OutputsValidator>,
+        ) -> Rpc<ckb_types::H256> {
+            todo!()
+        }
+
+        fn get_txs_by_hashes(
+            &self,
+            _hashes: Vec<ckb_types::H256>,
+        ) -> Rpc<Vec<Option<TransactionWithStatusResponse>>> {
+            todo!()
+        }
+
+        fn fetch_live_cells(
+            &self,
+            _search_key: SearchKey,
+            _limit: u32,
+            _cursor: Option<JsonBytes>,
+        ) -> Rpc<Pagination<Cell>> {
+            todo!()
+        }
+    }
+
+    fn get_ckb_chain() -> CkbChain<MockRpcClient> {
+        let data_dir = Path::new("test_storage");
+        if data_dir.is_dir() {
+            fs::remove_dir_all(data_dir).unwrap();
+        }
+        let dummy_addr = "http://127.0.0.1";
+        let config = CkbChainConfig {
+            id: ChainId::new(String::from("ckb"), 1),
+            ckb_rpc: Url::from_str(dummy_addr).unwrap(),
+            ckb_indexer_rpc: Url::from_str(dummy_addr).unwrap(),
+            lightclient_contract_typeargs: Default::default(),
+            key_name: Default::default(),
+            data_dir: data_dir.into(),
+        };
+        let chain: CkbChain<MockRpcClient> =
+            CkbChain::bootstrap(ChainConfig::Ckb(config), Arc::new(Runtime::new().unwrap()))
+                .unwrap();
+        chain
+    }
+
+    #[test]
+    fn get_verified_packed_client_and_proof_update() {
+        let _chain = get_ckb_chain();
     }
 }
